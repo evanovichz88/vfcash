@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 
 function extractDetails(body) {
   const numberMatch = body.match(/من رقم (\d{11})/);
@@ -18,49 +18,53 @@ const API_URL = "https://sms-api-gnxl.onrender.com/api/messages";
 const App = () => {
   const [messages, setMessages] = useState([]);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const intervalRef = useRef();
 
-  // جلب الرسائل مع أوتو ريفريش كل 15 ثانية
+  // Get messages from API
+  const fetchMessages = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(API_URL);
+      const data = await res.json();
+      setMessages(data.reverse()); // عشان الأحدث يظهر فوق
+    } catch (err) {
+      setMessages([]);
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
-    let timer;
-    const fetchMessages = () => {
-      setLoading(true);
-      fetch(API_URL)
-        .then(res => res.json())
-        .then(data => setMessages(data.reverse())) // الأحدث فوق
-        .finally(() => setLoading(false));
-    };
     fetchMessages();
-    timer = setInterval(fetchMessages, 15000);
-    return () => clearInterval(timer);
+    intervalRef.current = setInterval(fetchMessages, 60000); // auto-refresh كل دقيقة
+    return () => clearInterval(intervalRef.current);
   }, []);
 
-  // بحث متنوع
+  // Delete message
+  const handleDelete = async id => {
+    if (!window.confirm("هل أنت متأكد أنك تريد حذف الرسالة؟")) return;
+    await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+    fetchMessages();
+  };
+
+  // Filter messages
   const filtered = messages.filter(msg => {
     const details = extractDetails(msg.message || "");
-    const row = [
-      msg.sender,
-      msg.message,
-      details.number,
-      details.amount,
-      details.operation,
-      details.balance,
-      msg.datetime
-    ].join(" ");
+    const row =
+      msg.sender +
+      msg.message +
+      details.number +
+      details.amount +
+      details.operation +
+      details.balance +
+      (msg.datetime || "");
     return row.toLowerCase().includes(search.toLowerCase());
   });
-
-  // حذف رسالة
-  const handleDelete = async (id) => {
-    if (window.confirm("هل أنت متأكد من حذف الرسالة؟")) {
-      await fetch(`${API_URL}/${id}`, { method: "DELETE" });
-      setMessages(msgs => msgs.filter(m => m._id !== id));
-    }
-  };
 
   return (
     <div style={{ padding: 20 }}>
       <h1 style={{ textAlign: "center" }}>📬 لوحة تحكم رسائل فودافون كاش</h1>
+
       <input
         type="text"
         placeholder="ابحث عن رقم، مبلغ، وقت أو كلمة..."
@@ -70,68 +74,80 @@ const App = () => {
           marginBottom: 16,
           padding: 8,
           width: "100%",
-          fontSize: 18,
-          direction: "rtl"
+          maxWidth: 400,
+          fontSize: 16,
+          display: "block",
+          marginRight: "auto",
+          marginLeft: "auto"
         }}
       />
-      {loading && <p style={{ textAlign: "center" }}>جاري التحميل...</p>}
-      <table style={{
-        width: "100%",
-        borderCollapse: "collapse",
-        background: "white"
-      }}>
-        <thead>
-          <tr>
-            <th>حذف</th>
-            <th>المرسل</th>
-            <th>محتوى الرسالة</th>
-            <th>الرقم المحول</th>
-            <th>المبلغ</th>
-            <th>رقم العملية</th>
-            <th>الرصيد المتبقي</th>
-            <th>الوقت</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.length === 0 && (
+
+      {loading ? (
+        <div style={{ textAlign: "center" }}>...جارى التحميل</div>
+      ) : (
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            background: "white"
+          }}
+        >
+          <thead>
             <tr>
-              <td colSpan={8} style={{ textAlign: "center", color: "#999" }}>
-                لا توجد رسائل مطابقة للبحث.
-              </td>
+              <th>حذف</th>
+              <th>المرسل</th>
+              <th>محتوى الرسالة</th>
+              <th>الرقم المحوِّل</th>
+              <th>المبلغ</th>
+              <th>رقم العملية</th>
+              <th>الرصيد المتبقي</th>
+              <th>الوقت</th>
             </tr>
-          )}
-          {filtered.map((msg, idx) => {
-            const details = extractDetails(msg.message || "");
-            return (
-              <tr key={msg._id || idx}>
-                <td>
-                  <button
-                    onClick={() => handleDelete(msg._id)}
-                    style={{
-                      background: "#f44336",
-                      color: "white",
-                      border: "none",
-                      borderRadius: 6,
-                      cursor: "pointer",
-                      padding: "4px 10px",
-                      fontWeight: "bold"
-                    }}
-                  >
-                    حذف
-                  </button>
+          </thead>
+          <tbody>
+            {filtered.map((msg, idx) => {
+              const details = extractDetails(msg.message || "");
+              return (
+                <tr key={msg._id || idx}>
+                  <td>
+                    <button
+                      style={{
+                        background: "#e74c3c",
+                        color: "white",
+                        border: "none",
+                        borderRadius: 6,
+                        padding: "6px 12px",
+                        cursor: "pointer"
+                      }}
+                      onClick={() => handleDelete(msg._id)}
+                    >
+                      حذف
+                    </button>
+                  </td>
+                  <td>{msg.sender}</td>
+                  <td>{msg.message}</td>
+                  <td>{details.number}</td>
+                  <td>{details.amount} جنيه</td>
+                  <td>{details.operation}</td>
+                  <td>{details.balance} جنيه</td>
+                  <td>
+                    {(msg.datetime || "")
+                      .replace("T", " ")
+                      .replace(/:\d\d(\.\d+)?Z?$/, "")}
+                  </td>
+                </tr>
+              );
+            })}
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={8} style={{ textAlign: "center" }}>
+                  لا يوجد نتائج
                 </td>
-                <td>{msg.sender}</td>
-                <td style={{ maxWidth: 320, wordBreak: "break-word" }}>{msg.message}</td>
-                <td>{details.number}</td>
-                <td>{details.amount} جنيه</td>
-                <td>{details.operation}</td>
-                <td>{details.balance} جنيه</td>
-                <td>{msg.datetime?.replace("T", " ").replace(/:\d\d\.\d+Z?$/, "")}</td>
               </tr>
-            );
-          })}
-        </tbody>
-      </table>
+            )}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 };

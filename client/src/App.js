@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 function extractDetails(body) {
   const numberMatch = body.match(/من رقم (\d{11})/);
@@ -16,50 +16,21 @@ function extractDetails(body) {
 
 function App() {
   const [messages, setMessages] = useState([]);
-  const [sender, setSender] = useState("VF-Cash");
-  const [body, setBody] = useState("");
-  const [datetime, setDatetime] = useState("");
-  const [status, setStatus] = useState("pending");
+  const [loading, setLoading] = useState(true);
 
-  // لإضافة رسالة جديدة
-  const addMessage = (e) => {
-    e.preventDefault();
-    if (!body || !datetime) return;
-    setMessages([
-      ...messages,
-      { sender, body, datetime, status }
-    ]);
-    setBody("");
-    setDatetime("");
-    setStatus("pending");
-  };
+  useEffect(() => {
+    fetch("https://sms-api-gnxl.onrender.com/api/messages")
+      .then(res => res.json())
+      .then(data => {
+        setMessages(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
 
   return (
     <div style={{fontFamily: "Arial, sans-serif", background: "#f7f7f7", minHeight: "100vh", padding: "20px"}}>
       <h1 style={{textAlign: "center", marginBottom: 20}}>📬 لوحة تحكم رسائل فودافون كاش</h1>
-      {/* فورم لإضافة رسالة */}
-      <form onSubmit={addMessage} style={{marginBottom: 24, display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center"}}>
-        <input
-          type="text"
-          placeholder="محتوى الرسالة"
-          value={body}
-          onChange={e => setBody(e.target.value)}
-          style={{padding: 8, minWidth: 250}}
-          required
-        />
-        <input
-          type="datetime-local"
-          value={datetime}
-          onChange={e => setDatetime(e.target.value)}
-          style={{padding: 8}}
-          required
-        />
-        <select value={status} onChange={e => setStatus(e.target.value)} style={{padding: 8}}>
-          <option value="pending">لم تصل ⏳</option>
-          <option value="delivered">وصلت ✅</option>
-        </select>
-        <button type="submit" style={{padding: "8px 18px", background: "#111", color: "#fff", border: "none", borderRadius: 4}}>إضافة</button>
-      </form>
       <div style={{overflowX: "auto"}}>
         <table style={{
           width: "100%",
@@ -75,31 +46,29 @@ function App() {
               <th style={thStyle}>رقم العملية</th>
               <th style={thStyle}>الرصيد المتبقي</th>
               <th style={thStyle}>الوقت</th>
-              <th style={thStyle}>الحالة</th>
             </tr>
           </thead>
           <tbody>
-            {messages.length === 0 ? (
-              <tr>
-                <td style={tdStyle} colSpan={8}>لا توجد رسائل بعد</td>
-              </tr>
-            ) : messages.map((msg, idx) => {
-              const details = extractDetails(msg.body);
-              return (
-                <tr key={idx}>
-                  <td style={tdStyle}>{msg.sender}</td>
-                  <td style={tdStyle}>{msg.body}</td>
-                  <td style={tdStyle}>{details.number}</td>
-                  <td style={tdStyle}>{details.amount} جنيه</td>
-                  <td style={tdStyle}>{details.operation}</td>
-                  <td style={tdStyle}>{details.balance} جنيه</td>
-                  <td style={tdStyle}>{msg.datetime.replace("T", " ")}</td>
-                  <td style={{...tdStyle, color: msg.status === 'delivered' ? 'green' : 'orange', fontWeight: 'bold'}}>
-                    {msg.status === 'delivered' ? 'وصلت ✅' : 'لم تصل ⏳'}
-                  </td>
-                </tr>
-              );
-            })}
+            {loading ? (
+              <tr><td colSpan={7} style={tdStyle}>جاري التحميل...</td></tr>
+            ) : messages.length === 0 ? (
+              <tr><td colSpan={7} style={tdStyle}>لا توجد رسائل بعد</td></tr>
+            ) : (
+              messages.map((msg, idx) => {
+                const details = extractDetails(msg.message);
+                return (
+                  <tr key={idx}>
+                    <td style={tdStyle}>{msg.sender}</td>
+                    <td style={tdStyle}>{msg.message}</td>
+                    <td style={tdStyle}>{details.number}</td>
+                    <td style={tdStyle}>{details.amount} جنيه</td>
+                    <td style={tdStyle}>{details.operation}</td>
+                    <td style={tdStyle}>{details.balance} جنيه</td>
+                    <td style={tdStyle}>{msg.datetime ? msg.datetime.replace("T", " ") : ""}</td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>

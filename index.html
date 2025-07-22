@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>لوحة رسائل Vodafone Cash</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f7f7f7;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+    th, td {
+      padding: 12px;
+      border: 1px solid #ddd;
+      text-align: center;
+    }
+    th {
+      background: #111;
+      color: white;
+    }
+    .delivered {
+      color: green;
+      font-weight: bold;
+    }
+    .pending {
+      color: orange;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<h1>📬 لوحة تحكم رسائل فودافون كاش</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th>المرسل</th>
+      <th>محتوى الرسالة</th>
+      <th>الرقم المحوِّل</th>
+      <th>المبلغ</th>
+      <th>رقم العملية</th>
+      <th>الرصيد المتبقي</th>
+      <th>الوقت</th>
+      <th>الحالة</th>
+    </tr>
+  </thead>
+  <tbody id="smsTable"></tbody>
+</table>
+
+<script>
+  const messages = [
+    {
+      sender: "VF-Cash",
+      body: "تم استلام مبلغ 99.00 جنيه من رقم 01226712355؛ المسجل بإسم ابانوب وجيه شلبى صالح. رصيدك الحالي 4697.86 جنيه. تاريخ العملية ‎22-07-25 00:01‎ رقم العملية 012882714068. كل مرة تحول فلوس بڤودافون كاش هيجيلك تحويلة هدية لأي حد!",
+      datetime: "2025-07-22 00:01",
+      status: "delivered"
+    },
+    {
+      sender: "VF-Cash",
+      body: "تم استلام مبلغ 150.50 جنيه من رقم 01099887766؛ المسجل بإسم محمد أحمد. رصيدك الحالي 5000.00 جنيه. تاريخ العملية ‎22-07-21 12:05‎ رقم العملية 987654321000.",
+      datetime: "2025-07-21 12:05",
+      status: "pending"
+    }
+  ];
+
+  function extractDetails(body) {
+    const numberMatch = body.match(/من رقم (\d{11})/);
+    const amountMatch = body.match(/مبلغ ([\d.]+) جنيه/);
+    const balanceMatch = body.match(/رصيدك الحالي ([\d.]+) جنيه/);
+    const opMatch = body.match(/رقم العملية (\d+)/);
+
+    return {
+      number: numberMatch ? numberMatch[1] : "غير موجود",
+      amount: amountMatch ? amountMatch[1] : "غير معروف",
+      balance: balanceMatch ? balanceMatch[1] : "غير معروف",
+      operation: opMatch ? opMatch[1] : "غير معروف"
+    };
+  }
+
+  const smsTable = document.getElementById("smsTable");
+
+  messages.forEach(msg => {
+    const details = extractDetails(msg.body);
+    const row = document.createElement("tr");
+
+    row.innerHTML = `
+      <td>${msg.sender}</td>
+      <td>${msg.body}</td>
+      <td>${details.number}</td>
+      <td>${details.amount} جنيه</td>
+      <td>${details.operation}</td>
+      <td>${details.balance} جنيه</td>
+      <td>${msg.datetime}</td>
+      <td class="${msg.status === 'delivered' ? 'delivered' : 'pending'}">
+        ${msg.status === 'delivered' ? 'وصلت ✅' : 'لم تصل ⏳'}
+      </td>
+    `;
+
+    smsTable.appendChild(row);
+  });
+</script>
+
+</body>
+</html>

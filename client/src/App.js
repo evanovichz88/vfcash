@@ -29,7 +29,7 @@ const App = () => {
         .catch(() => setMessages([]));
     };
     fetchData(); // أول تحميل
-    const interval = setInterval(fetchData, 3000); // كل 15 ثانية
+    const interval = setInterval(fetchData, 3000); // كل 3 ثانية
     return () => clearInterval(interval);
   }, []);
 

@@ -63,7 +63,7 @@ const App = () => {
 
   return (
     <div style={{ padding: 20 }}>
-      <h1 style={{ textAlign: "center" }}>📬 لوحة تحكم رسائل فودافون كاش</h1>
+      <h1 style={{ textAlign: "center" }}>📬 لوحة تحكم رسائل الخاصه بالكاش</h1>
 
       <input
         type="text"

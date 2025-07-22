@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 
-// استخلاص تفاصيل الرسالة
 function extractDetails(body) {
   const numberMatch = body.match(/من رقم (\d{11})/);
   const amountMatch = body.match(/مبلغ ([\d.]+) جنيه/);
@@ -19,35 +18,24 @@ const API_URL = "https://sms-api-gnxl.onrender.com/api/messages";
 const App = () => {
   const [messages, setMessages] = useState([]);
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // جلب البيانات مع أوتو ريفريش
+  // جلب الرسائل مع أوتو ريفريش كل 15 ثانية
   useEffect(() => {
-    const fetchData = () => {
+    let timer;
+    const fetchMessages = () => {
+      setLoading(true);
       fetch(API_URL)
         .then(res => res.json())
-        .then(data => setMessages(data))
-        .catch(() => setMessages([]));
+        .then(data => setMessages(data.reverse())) // الأحدث فوق
+        .finally(() => setLoading(false));
     };
-    fetchData(); // أول تحميل
-    const interval = setInterval(fetchData, 3000); // كل 3 ثانية
-    return () => clearInterval(interval);
+    fetchMessages();
+    timer = setInterval(fetchMessages, 15000);
+    return () => clearInterval(timer);
   }, []);
 
-  // حذف رسالة (لو API بيدعم DELETE)
-  const handleDelete = idx => {
-    // هنبعت body فيه رقم الرسالة أو أي id لو متاح
-    fetch(API_URL, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ index: idx })
-    })
-      .then(res => res.json())
-      .then(() => {
-        setMessages(msgs => msgs.filter((_, i) => i !== idx));
-      });
-  };
-
-  // فلترة حسب البحث (أي عمود)
+  // بحث متنوع
   const filtered = messages.filter(msg => {
     const details = extractDetails(msg.message || "");
     const row = [
@@ -62,25 +50,31 @@ const App = () => {
     return row.toLowerCase().includes(search.toLowerCase());
   });
 
+  // حذف رسالة
+  const handleDelete = async (id) => {
+    if (window.confirm("هل أنت متأكد من حذف الرسالة؟")) {
+      await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+      setMessages(msgs => msgs.filter(m => m._id !== id));
+    }
+  };
+
   return (
     <div style={{ padding: 20 }}>
       <h1 style={{ textAlign: "center" }}>📬 لوحة تحكم رسائل فودافون كاش</h1>
-
       <input
         type="text"
-        placeholder="🔍 ابحث عن رقم، مبلغ، وقت أو كلمة..."
+        placeholder="ابحث عن رقم، مبلغ، وقت أو كلمة..."
         value={search}
         onChange={e => setSearch(e.target.value)}
         style={{
           marginBottom: 16,
           padding: 8,
-          width: "50%",
-          fontSize: 16,
-          border: "1px solid #aaa",
-          borderRadius: 8
+          width: "100%",
+          fontSize: 18,
+          direction: "rtl"
         }}
       />
-
+      {loading && <p style={{ textAlign: "center" }}>جاري التحميل...</p>}
       <table style={{
         width: "100%",
         borderCollapse: "collapse",
@@ -88,58 +82,56 @@ const App = () => {
       }}>
         <thead>
           <tr>
+            <th>حذف</th>
             <th>المرسل</th>
             <th>محتوى الرسالة</th>
-            <th>الرقم المحوِّل</th>
+            <th>الرقم المحول</th>
             <th>المبلغ</th>
             <th>رقم العملية</th>
             <th>الرصيد المتبقي</th>
             <th>الوقت</th>
-            <th>حذف</th>
           </tr>
         </thead>
         <tbody>
-          {filtered.length === 0 ? (
+          {filtered.length === 0 && (
             <tr>
-              <td colSpan={8} style={{ textAlign: "center" }}>
-                لا توجد رسائل مطابقة للبحث
+              <td colSpan={8} style={{ textAlign: "center", color: "#999" }}>
+                لا توجد رسائل مطابقة للبحث.
               </td>
             </tr>
-          ) : filtered.map((msg, idx) => {
-            // لازم idx يبقى من الرسائل الأصليه عشان الحذف يشتغل صح
-            const realIdx = messages.indexOf(msg);
+          )}
+          {filtered.map((msg, idx) => {
             const details = extractDetails(msg.message || "");
             return (
-              <tr key={realIdx}>
+              <tr key={msg._id || idx}>
+                <td>
+                  <button
+                    onClick={() => handleDelete(msg._id)}
+                    style={{
+                      background: "#f44336",
+                      color: "white",
+                      border: "none",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      padding: "4px 10px",
+                      fontWeight: "bold"
+                    }}
+                  >
+                    حذف
+                  </button>
+                </td>
                 <td>{msg.sender}</td>
-                <td>{msg.message}</td>
+                <td style={{ maxWidth: 320, wordBreak: "break-word" }}>{msg.message}</td>
                 <td>{details.number}</td>
                 <td>{details.amount} جنيه</td>
                 <td>{details.operation}</td>
                 <td>{details.balance} جنيه</td>
                 <td>{msg.datetime?.replace("T", " ").replace(/:\d\d\.\d+Z?$/, "")}</td>
-                <td>
-                  <button
-                    onClick={() => handleDelete(realIdx)}
-                    style={{
-                      color: "white",
-                      background: "#d9534f",
-                      border: "none",
-                      borderRadius: 6,
-                      padding: "6px 14px",
-                      cursor: "pointer"
-                    }}>
-                    حذف
-                  </button>
-                </td>
               </tr>
             );
           })}
         </tbody>
       </table>
-      <div style={{ marginTop: 10, fontSize: 14, color: "#888" }}>
-        سيتم تحديث الجدول تلقائيًا كل 15 ثانية
-      </div>
     </div>
   );
 };
